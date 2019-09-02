@@ -4,6 +4,8 @@
 
 #include <iostream>
 
+extern short LOGLEVEL;
+
 namespace debugger {
 
     enum Codes {ERROR = 0, SUCCESS = 1, WARNING = 2, INFO = 3, DEFAULT = 4};

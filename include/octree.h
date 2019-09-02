@@ -4,11 +4,13 @@
 
 #include <vector>
 #include <map>
-
-#include "context.h"
+#include <morton.h>
+#include <fstream>
 
 #ifdef DEBUG
-#include "debugger.h"
+#include <debugger.h>
+#endif
+
 
 inline bool isPow2(unsigned i) {
     return ((i - 1) & i) == 0;
@@ -32,38 +34,120 @@ inline unsigned log2(unsigned n) {
 
 // 3D point set specific implementation of a linear octree
 // Supports ray collision detection and nearest neighbour search
-// Stored as std::map:
-//      Z-order encoding of cell -> list of points in cell
+// Stored as std::map
+//      Z-order aka Morton encoding of cell -> list of points in cell
 
 class Octree {
 
-    uint16_t resolution;
+    uint8_t resolution;
     uint32_t width;
 
-    class SuperCell {
+    class Octant {
+
+    public:
+        Octant() {};
+        Octant(Vector min, Vector max) : min(min), max(max) {
+            #ifdef DEBUG
+            std::cout << "Initialized octant with corners " << min << " and " << max << std::endl; 
+            #endif
+        };
         Vector min;     // xmin, ymin, zmin
         Vector max;     // xmax, ymax, zmax
+        // bool intersects(Segment seg);
+        // bool intersects(Ray ray);
+    };
 
-    public:
-        SuperCell(Vector min, Vector max) : min(min), max(max) {}
-        bool intersects(Segment seg);
-        bool intersects(Ray ray);
-    }
-
-    class Cell : private SuperCell {
+    class Cell {
         
-        vector<Point> points;
-        Cell(Vector min, Vector max, Point point) : SuperCell(min, max);
+        std::vector<Point> points;
 
     public:
-        static Cell getCell(Point point);
-    }
+        Cell(Point point) {
+            add(point);
+        }
+        
+        void add(Point point) {
+            points.push_back(point);
+        };
+        #ifdef DEBUG
+        void print() {
+            for(auto it = points.begin(); it != points.end(); it++) {
+                std::cout << *it << std::endl;
+            }
+        }
+        #endif
+    };
 
-    SuperCell boundary;
-    map<uint64_t, Cell> cells;
+    typedef std::map<uint64_t, Cell> map;
+
+    Octant boundary;
+    map cells;
 
 public:
-    Octree(uint32_t width, Vector min, Vector max) : width(width), boundary(min, max);
-    ~Octree();
+    Octree(uint8_t resolution, Vector min, Vector max) : resolution(resolution) {
+        Vector diagonal = max - min;
+        double longest = std::max(std::max(diagonal.x(), diagonal.y()), diagonal.z());
+        width = longest * resolution;
+        boundary = Octant(min, min + Vector(longest, longest, longest));
+    };
+
+    ~Octree() {};
+    void add(std::istream_iterator<Point> begin, std::istream_iterator<Point> end);
     void add(Point point);
+    Point getCellOrigin(Point point);
+};
+
+void Octree::add(std::istream_iterator<Point> begin, std::istream_iterator<Point> end) {
+    for(auto it = begin; it != end; it++) {
+        add(*it);
+    }
+    #ifdef DEBUG
+    std::cout << cells.size() << " points added to tree" << std::endl;
+    #endif
+}
+
+void Octree::add(Point point) {
+    Point origin = getCellOrigin(point);
+    uint64_t encoding;
+    try {
+        encoding = morton::encode(origin.x(), origin.y(), origin.z());
+    } catch(const std::invalid_argument&) {
+        std::cout << "Faulted at " << point << std::endl;
+        std::cout << "Make sure the point lies within the prescribed boundary" << std::endl;
+        throw;
+    }
+
+    map::iterator lb = cells.lower_bound(encoding);
+
+    if(lb != cells.end() && encoding == lb->first) {
+        (lb->second).add(point);
+        
+        #ifdef DEBUG
+        if(LOGLEVEL > 1) {
+            std::cout << "The following points: " << std::endl;
+            lb->second.print();
+            std::cout << "were added to same cell" << std::endl;
+        }
+        #endif
+    
+    } else {
+        //TODO: Recheck for edge cases
+        cells.insert(lb, map::value_type(encoding, Cell(point)));
+    }
+}
+
+Point Octree::getCellOrigin(Point point) {
+
+    //TODO: Exception Handling for noise samples 
+    //      lying outside boundary
+    
+    Vector p(point.x(), point.y(), point.z());
+    Vector pos = p - boundary.min;
+    uint32_t x = pos.x() * resolution;
+    uint32_t y = pos.y() * resolution;
+    uint32_t z = pos.z() * resolution;
+    //min           pos                                   max
+    // |-------------|-------------------------------------|
+    // 0           mapped                             max * resolution
+    return Point(x, y, z);
 }
