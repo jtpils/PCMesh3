@@ -3,31 +3,54 @@
 #pragma once
 
 #include <iostream>
-
-extern short LOGLEVEL;
+#include <vector>
 
 namespace debugger {
 
-    enum Codes {ERROR = 0, SUCCESS = 1, WARNING = 2, INFO = 3, DEFAULT = 4};
-    std::string Colors[] = {"\x1b[31m", "\x1b[32m", "\x1b[33m", "\x1b[34m", "\x1b[39m"};
-
-    void print(std::string literal) {
-        std::cout << literal << std::endl;
-        #ifndef DEBUG
-        std::cout << Colors[WARNING] << "\nWARNING: " << "Illegal debugger call!\n" << Colors[DEFAULT] << "  +> Check for definition of DEBUG header before calling debugger functions" << std::endl;
-        #endif
+    template<typename T>
+    void print(T t) {
+        std::cout << t << std::endl;
     }
 
-    void error(std::string literal) {
-        print(Colors[ERROR] + "ERROR: " + literal + Colors[DEFAULT]);
+    template<typename T, typename A>
+    void print(std::vector<T, A> const &t) {
+        std::cout << std::endl;
+        for(auto it = t.begin(); it != t.end(); it++) {
+            std::cout << "\t" << *it << std::endl;
+        }
     }
-    void success(std::string literal) {
-        print(Colors[SUCCESS] + "SUCCESS: " + literal + Colors[DEFAULT]);
+
+    template<typename T, typename A, typename ...types>
+    void print(std::vector<T, A> const &t, types... args) {
+        print(t);
+        print(args...);
     }
-    void warn(std::string literal) {
-        print(Colors[WARNING] + "WARNING: " + literal + Colors[DEFAULT]);   
+
+    template<typename T, typename ...types>
+    void print(T t, types... args) {
+        std::cout << t;
+        print(args...);
     }
-    void info(std::string literal) {
-        print(Colors[INFO] + "INFO: " + literal + Colors[DEFAULT]); 
+
+    template<typename ...types>
+    void error(types ...args) {
+        print("\x1b[31m", args..., "\x1b[39m");
     }
+    #ifdef DEBUG
+
+    extern short LOGLEVEL;
+
+    template<typename ...types>
+    void success(types ...args) {
+        print("\x1b[32m", args..., "\x1b[39m");
+    }
+    template<typename ...types>
+    void warn(types ...args) {
+        print("\x1b[33m", args..., "\x1b[39m");
+    }
+    template<typename ...types>
+    void info(types ...args) {
+        print("\x1b[34m", args..., "\x1b[39m");
+    }
+    #endif
 }

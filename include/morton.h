@@ -21,7 +21,7 @@ namespace morton {
         return x;
     }
 
-    inline uint_fast64_t unshift(uint_fast64_t x) {                                 
+    inline uint_fast64_t unshift(uint_fast64_t x) {
         x &= 0x1249249249249249;                                // x = ---4 --3- -2-- 1--0 --f- -e-- d--c --b- -a-- 9--8 --7- -6-- 5--4 --3- -2-- 1--0
         x = (x ^ (x >>  2))             & 0x10c30c30c30c30c3;   // x = ---4 ---- 32-- --10 ---- fe-- --dc ---- ba-- --98 ---- 76-- --54 ---- 32-- --10
         x = (x ^ (x >>  4))             & 0x100f00f00f00f00f;   // x = ---4 ---- ---- 3210 ---- ---- fedc ---- ---- ba98 ---- ---- 7654 ---- ---- 3210

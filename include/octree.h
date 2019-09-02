@@ -48,7 +48,7 @@ class Octree {
         Octant() {};
         Octant(Vector min, Vector max) : min(min), max(max) {
             #ifdef DEBUG
-            std::cout << "Initialized octant with corners " << min << " and " << max << std::endl; 
+            debugger::print("Initialized octant with corners ", min, " and ", max);
             #endif
         };
         Vector min;     // xmin, ymin, zmin
@@ -58,24 +58,21 @@ class Octree {
     };
 
     class Cell {
-        
+
         std::vector<Point> points;
 
     public:
         Cell(Point point) {
             add(point);
         }
-        
+
         void add(Point point) {
             points.push_back(point);
         };
-        #ifdef DEBUG
-        void print() {
-            for(auto it = points.begin(); it != points.end(); it++) {
-                std::cout << *it << std::endl;
-            }
+
+        std::vector<Point> getPoints() {
+            return points;
         }
-        #endif
     };
 
     typedef std::map<uint64_t, Cell> map;
@@ -102,7 +99,7 @@ void Octree::add(std::istream_iterator<Point> begin, std::istream_iterator<Point
         add(*it);
     }
     #ifdef DEBUG
-    std::cout << cells.size() << " points added to tree" << std::endl;
+    debugger::success(cells.size(), " points added to tree");
     #endif
 }
 
@@ -112,8 +109,8 @@ void Octree::add(Point point) {
     try {
         encoding = morton::encode(origin.x(), origin.y(), origin.z());
     } catch(const std::invalid_argument&) {
-        std::cout << "Faulted at " << point << std::endl;
-        std::cout << "Make sure the point lies within the prescribed boundary" << std::endl;
+        debugger::error("Faulted at ", point);
+        debugger::error("Make sure the point lies within the prescribed boundary");
         throw;
     }
 
@@ -121,15 +118,13 @@ void Octree::add(Point point) {
 
     if(lb != cells.end() && encoding == lb->first) {
         (lb->second).add(point);
-        
+
         #ifdef DEBUG
-        if(LOGLEVEL > 1) {
-            std::cout << "The following points: " << std::endl;
-            lb->second.print();
-            std::cout << "were added to same cell" << std::endl;
+        if(debugger::LOGLEVEL > 1) {
+            debugger::print("The following points: ", lb->second.getPoints(), "were added to the same cell");
         }
         #endif
-    
+
     } else {
         //TODO: Recheck for edge cases
         cells.insert(lb, map::value_type(encoding, Cell(point)));
@@ -138,9 +133,9 @@ void Octree::add(Point point) {
 
 Point Octree::getCellOrigin(Point point) {
 
-    //TODO: Exception Handling for noise samples 
+    //TODO: Exception Handling for noise samples
     //      lying outside boundary
-    
+
     Vector p(point.x(), point.y(), point.z());
     Vector pos = p - boundary.min;
     uint32_t x = pos.x() * resolution;

@@ -8,15 +8,14 @@
 
 #ifdef DEBUG
 #include <debugger.h>
-short LOGLEVEL = 0;
+short debugger::LOGLEVEL = 0;
 #endif
-
 
 int main(int argc, char* argv[]) {
     #ifdef DEBUG
     int c = 0;
     while((c = getopt(argc, argv, "v")) != -1)
-        if (c == 'v') LOGLEVEL++;
+        if (c == 'v') debugger::LOGLEVEL++;
 
 	std::clock_t start;
     double duration;
@@ -37,5 +36,6 @@ int main(int argc, char* argv[]) {
     duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
     std::cout << "Execution took " << duration << " seconds" << std::endl;
     #endif
+
 	return 0;
 }
