@@ -7,10 +7,7 @@
 #include <morton.h>
 #include <fstream>
 
-#ifdef DEBUG
 #include <debugger.h>
-#endif
-
 
 inline bool isPow2(unsigned i) {
     return ((i - 1) & i) == 0;
