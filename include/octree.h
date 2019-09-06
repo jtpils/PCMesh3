@@ -4,30 +4,11 @@
 
 #include <vector>
 #include <map>
-#include <morton.h>
 #include <fstream>
 
+#include <morton.h>
+#include <base2.h>
 #include <debugger.h>
-
-inline bool isPow2(unsigned i) {
-    return ((i - 1) & i) == 0;
-}
-
-inline unsigned log2(unsigned n) {
-    assert(n != 0);
-    assert(isPow2(n));
-
-    unsigned log = 0;
-    while(true)
-    {
-        n >>= 1;
-        if (n == 0) {
-            break;
-        }
-        log++;
-    }
-    return log;
-}
 
 // 3D point set specific implementation of a linear octree
 // Supports ray collision detection and nearest neighbour search
@@ -36,7 +17,7 @@ inline unsigned log2(unsigned n) {
 
 class Octree {
 
-    uint8_t resolution;
+    uint16_t resolution;
     uint32_t width;
 
     class Octant {
@@ -78,11 +59,21 @@ class Octree {
     map cells;
 
 public:
-    Octree(uint8_t resolution, Vector min, Vector max) : resolution(resolution) {
-        Vector diagonal = max - min;
-        double longest = std::max(std::max(diagonal.x(), diagonal.y()), diagonal.z());
-        width = longest * resolution;
-        boundary = Octant(min, min + Vector(longest, longest, longest));
+    Octree(uint8_t res, Vector min, Vector max) {
+        // Initialize min and max of octree whilst making sure
+        //      the number divisions are a power of 2
+        Vector floored((int)min.x(), (int)min.y(), (int)min.z());
+        Vector diagonal = max - floored;
+        int longest = base2::ceil(                          // Convert to next closest power of 2
+                        (int)std::ceil(                     // Convert to next smallest integer
+                        std::max({  diagonal.x(),           // Maximize cube to contain everything
+                                    diagonal.y(),
+                                    diagonal.z()
+                                })));
+
+        width = longest << res;
+        resolution = 1 << res;
+        boundary = Octant(floored, floored + Vector(longest, longest, longest));
     };
 
     ~Octree() {};
@@ -92,11 +83,13 @@ public:
 };
 
 void Octree::add(std::istream_iterator<Point> begin, std::istream_iterator<Point> end) {
+    int i = 0;
     for(auto it = begin; it != end; it++) {
         add(*it);
+        i++;
     }
     #ifdef DEBUG
-    debugger::success(cells.size(), " points added to tree");
+    debugger::success(i, " points added to ", cells.size(), " cells");
     #endif
 }
 
