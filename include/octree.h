@@ -19,6 +19,7 @@ class Octree {
 
     uint16_t resolution;
     uint32_t width;
+    Point origin;
 
     class Octant {
 
@@ -55,16 +56,18 @@ class Octree {
 
     typedef std::map<uint64_t, Cell> map;
 
-    Octant boundary;
     map cells;
+    Octant boundary;
 
 public:
-    Octree(uint8_t res, Vector min, Vector max) {
+
+
+    Octree(uint8_t res, Point min, Point max) {
         // Initialize min and max of octree whilst making sure
         //      the number divisions are a power of 2
-        Vector floored((int)min.x(), (int)min.y(), (int)min.z());
+        Point floored((int)min.x(), (int)min.y(), (int)min.z());
         Vector diagonal = max - floored;
-        int longest = base2::ceil(                          // Convert to next closest power of 2
+        uint32_t longest = base2::ceil(                     // Convert to next closest power of 2
                         (int)std::ceil(                     // Convert to next smallest integer
                         std::max({  diagonal.x(),           // Maximize cube to contain everything
                                     diagonal.y(),
@@ -73,13 +76,14 @@ public:
 
         width = longest << res;
         resolution = 1 << res;
-        boundary = Octant(floored, floored + Vector(longest, longest, longest));
+        origin = floored;
+        boundary = Octant(Vector(0,0,0), Vector(width, width, width));
     };
 
     ~Octree() {};
     void add(std::istream_iterator<Point> begin, std::istream_iterator<Point> end);
     void add(Point point);
-    Point getCellOrigin(Point point);
+    Point transform(Point point);
 };
 
 void Octree::add(std::istream_iterator<Point> begin, std::istream_iterator<Point> end) {
@@ -94,11 +98,11 @@ void Octree::add(std::istream_iterator<Point> begin, std::istream_iterator<Point
 }
 
 void Octree::add(Point point) {
-    Point origin = getCellOrigin(point);
+    Point cell = transform(point);
     uint64_t encoding;
     try {
-        encoding = morton::encode(origin.x(), origin.y(), origin.z());
-    } catch(const std::invalid_argument&) {
+        encoding = morton::encode((uint32_t)cell.x(), (uint32_t)cell.y(), (uint32_t)cell.z());
+    } catch(std::invalid_argument &e) {
         debugger::error("Faulted at ", point);
         debugger::error("Make sure the point lies within the prescribed boundary");
         throw;
@@ -107,7 +111,7 @@ void Octree::add(Point point) {
     map::iterator lb = cells.lower_bound(encoding);
 
     if(lb != cells.end() && encoding == lb->first) {
-        (lb->second).add(point);
+        (lb->second).add(cell);
 
         #ifdef DEBUG
         if(debugger::LOGLEVEL > 1) {
@@ -117,22 +121,14 @@ void Octree::add(Point point) {
 
     } else {
         //TODO: Recheck for edge cases
-        cells.insert(lb, map::value_type(encoding, Cell(point)));
+        cells.insert(lb, map::value_type(encoding, Cell(cell)));
     }
 }
 
-Point Octree::getCellOrigin(Point point) {
+Point Octree::transform(Point point) {
 
     //TODO: Exception Handling for noise samples
     //      lying outside boundary
-
-    Vector p(point.x(), point.y(), point.z());
-    Vector pos = p - boundary.min;
-    uint32_t x = pos.x() * resolution;
-    uint32_t y = pos.y() * resolution;
-    uint32_t z = pos.z() * resolution;
-    //min           pos                                   max
-    // |-------------|-------------------------------------|
-    // 0           mapped                             max * resolution
-    return Point(x, y, z);
+    Vector position = (point - origin) * resolution;
+    return Point(position.x(), position.y(), position.z());
 }
