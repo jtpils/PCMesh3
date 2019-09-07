@@ -7,6 +7,7 @@
 typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
 typedef K::Point_3                                          Point;
 typedef K::Vector_3                                         Vector;
+typedef K::Line_3											Line;
 typedef K::Segment_3                                        Segment;
 typedef K::Ray_3                                            Ray;
 
