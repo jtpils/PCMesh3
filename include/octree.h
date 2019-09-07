@@ -4,6 +4,7 @@
 
 #include <vector>
 #include <map>
+#include <stack>
 #include <fstream>
 
 #include <morton.h>
@@ -30,8 +31,26 @@ class Octree {
             debugger::print("Initialized octant with corners ", min, " and ", max);
             #endif
         };
+        Octant child(int i) {
+            // Diagonal of new octant is half of the original octant;
+            Vector diagonal = (max - min) * 0.5;
+            #ifdef DEBUG
+            if(debugger::LOGLEVEL > 1)
+                debugger::print("cube diagonal: ", diagonal);
+            #endif
+
+            uint_fast32_t xx, yy, zz;
+            // Get child origin as cell no
+            morton::decode(i, xx, yy, zz);
+            Vector origin(xx * diagonal.x(), yy * diagonal.y(), zz * diagonal.z());
+            return Octant(min + origin, min + origin + diagonal);
+        };
         Vector min;     // xmin, ymin, zmin
         Vector max;     // xmax, ymax, zmax
+
+        uint32_t size() {
+            return max.x() - min.x();
+        }
         // bool intersects(Segment seg);
         // bool intersects(Ray ray);
     };
@@ -61,6 +80,35 @@ class Octree {
 
 public:
 
+    class iterator {
+    std::stack<Octant> stack;
+    Octant current;
+    public:
+
+        iterator(Octree tree) {
+            current = tree.boundary;
+        }
+        bool child(int n) {
+            if(current.size() <= 1.0)
+                return false;
+            stack.push(current);
+            current = current.child(n);
+            return true;
+        }
+        bool sibling(int n) {
+            if(stack.empty())
+                return false;
+            current = stack.top().child(n);
+            return true;
+        }
+        bool parent() {
+            if(stack.empty())
+                return false;
+            current = stack.top();
+            stack.pop();
+            return true;
+        }
+    };
 
     Octree(uint8_t res, Point min, Point max) {
         // Initialize min and max of octree whilst making sure
