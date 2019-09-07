@@ -50,9 +50,7 @@ class Octree {
 
         uint32_t size() {
             return max.x() - min.x();
-        }
-        // bool intersects(Segment seg);
-        // bool intersects(Ray ray);
+        };
     };
 
     class Cell {
@@ -83,9 +81,11 @@ public:
     class iterator {
     std::stack<Octant> stack;
     Octant current;
+    Octree &tree;
+
     public:
 
-        iterator(Octree tree) {
+        iterator(Octree &tree) : tree(tree) {
             current = tree.boundary;
         }
         bool child(int n) {
@@ -107,6 +107,17 @@ public:
             current = stack.top();
             stack.pop();
             return true;
+        }
+        Octant getOctant() {
+            return current;
+        }
+        Cell getCell() {
+            uint64_t encoding = morton::encode(current.min.x(), current.min.y(), current.min.z());
+            map::iterator it = tree.cells.find(encoding);
+            if(it != tree.cells.end())
+                return it->second;
+            else
+                throw std::logic_error("Cell is not populated in tree");
         }
     };
 
@@ -132,6 +143,8 @@ public:
     void add(std::istream_iterator<Point> begin, std::istream_iterator<Point> end);
     void add(Point point);
     Point transform(Point point);
+    bool empty();
+    bool empty(Octant octant);
 };
 
 void Octree::add(std::istream_iterator<Point> begin, std::istream_iterator<Point> end) {
@@ -174,9 +187,19 @@ void Octree::add(Point point) {
 }
 
 Point Octree::transform(Point point) {
-
-    //TODO: Exception Handling for noise samples
-    //      lying outside boundary
     Vector position = (point - origin) * resolution;
     return Point(position.x(), position.y(), position.z());
+}
+
+bool Octree::empty() {
+    return empty(boundary);
+}
+
+bool Octree::empty(Octant octant) {
+    uint64_t first = morton::encode(octant.min.x(), octant.min.y(), octant.min.z());
+    uint64_t last = morton::encode(octant.max.x() - 1, octant.max.y() - 1, octant.max.z() - 1);
+    map::iterator it = cells.lower_bound(first);
+    if(it == cells.end() || it->first > last)
+        return true;
+    return false;
 }
