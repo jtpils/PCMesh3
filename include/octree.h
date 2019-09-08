@@ -9,6 +9,7 @@
 
 #include <morton.h>
 #include <base2.h>
+#include <geometry.h>
 #include <debugger.h>
 
 // 3D point set specific implementation of a linear octree
@@ -20,6 +21,7 @@ class Octree {
 
     uint16_t resolution;
     uint32_t width;
+    float threshold = 50;
     Point origin;
 
     class Octant {
@@ -186,6 +188,10 @@ public:
     Point transform(Point point);
     bool empty();
     bool empty(Octant octant);
+    bool neighborhood(Line line, Octant octant) {
+        Vector extension(threshold, threshold, threshold);
+        return geometry::intersects(line, octant.min - extension, octant.max + extension);
+    }
 };
 
 void Octree::add(std::istream_iterator<Point> begin, std::istream_iterator<Point> end) {
