@@ -33,7 +33,7 @@ class Octree {
         };
         Octant child(int i) {
             // Diagonal of new octant is half of the original octant;
-            Vector diagonal = (max - min) * 0.5;
+            Vector diagonal = (max - min) / 2;
             #ifdef DEBUG
             if(debugger::LOGLEVEL > 1)
                 debugger::print("cube diagonal: ", diagonal);
@@ -79,34 +79,64 @@ class Octree {
 public:
 
     class iterator {
-    std::stack<Octant> stack;
+    // During depth-first iteration
+    //  Path tracks parent and branch # followed
+    std::stack<std::pair<Octant, int> > path;
     Octant current;
     Octree &tree;
+    int depth = 0;
+    int sibling = 0;
 
     public:
 
         iterator(Octree &tree) : tree(tree) {
             current = tree.boundary;
         }
-        bool child(int n) {
-            if(current.size() <= 1.0)
+        bool isLeaf() {
+            return current.size() <= 1.0;
+        }
+        // Finds first non-empty child
+        bool toChild() {
+            if(isLeaf())
                 return false;
-            stack.push(current);
-            current = current.child(n);
+            for(int i = 0; i < 8; i++) {
+                Octant oct = current.child(i);
+                if(!tree.empty(oct)) {
+                    path.push(std::make_pair(current, i));
+                    current = oct;
+                    sibling = i;
+                    depth++;
+                    return true;
+                }
+            }
+            return false;
+        }
+        bool toParent() {
+            if(path.empty()) {
+                return false;
+            }
+            current = path.top().first;
+            path.pop();
+            depth--;
+            if(depth != 0)
+                sibling = path.top().second;
+            else sibling = 0;
             return true;
         }
-        bool sibling(int n) {
-            if(stack.empty())
+        bool toSibling() {
+            if(path.empty() || sibling >= 7)
                 return false;
-            current = stack.top().child(n);
-            return true;
-        }
-        bool parent() {
-            if(stack.empty())
-                return false;
-            current = stack.top();
-            stack.pop();
-            return true;
+            for(int i = sibling + 1; i < 8; i++) {
+                Octant parent = path.top().first;
+                Octant oct = parent.child(i);
+                if(!tree.empty(oct)) {
+                    current = oct;
+                    path.top().second = i;
+                    sibling = i;
+                    return true;
+                }
+            }
+            return false;
         }
         Octant getOctant() {
             return current;
@@ -118,6 +148,17 @@ public:
                 return it->second;
             else
                 throw std::logic_error("Cell is not populated in tree");
+        }
+        bool next(bool skip) {
+            // skip => Ignore exploration of branch
+            if(!skip && toChild())
+                return true;
+            if(toSibling())
+                return true;
+            while(toParent() && !toSibling());
+            if(depth == 0)
+                return false;
+            return true;
         }
     };
 
